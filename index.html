@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Language Learning Zetamac - Setup</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+
+        #setup-container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .option {
+            margin: 15px 0;
+            padding: 10px;
+            background-color: #f8f8f8;
+            border-radius: 5px;
+            transition: background-color 0.2s;
+        }
+
+        .option:hover {
+            background-color: #f0f0f0;
+        }
+
+        .option label {
+            margin-left: 10px;
+            cursor: pointer;
+        }
+
+        select {
+            padding: 5px;
+            margin-left: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background-color: white;
+        }
+
+        #start-button {
+            display: block;
+            width: 200px;
+            margin: 30px auto 0;
+            padding: 12px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.2s;
+        }
+
+        #start-button:hover {
+            background-color: #45a049;
+        }
+
+        .error-message {
+            color: #ff4444;
+            text-align: center;
+            margin-top: 10px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div id="setup-container">
+        <h1>Language Learning Game</h1>
+        <p>Select the game modes you want to practice:</p>
+        <div class="option">
+            <input type="checkbox" id="hiragana">
+            <label for="hiragana">Hiragana (あ, い, う, etc.)</label>
+        </div>
+        <div class="option">
+            <input type="checkbox" id="katakana">
+            <label for="katakana">Katakana (ア, イ, ウ, etc.)</label>
+        </div>
+        
+        <div class="option">
+            <input type="checkbox" id="korean-consonants" checked>
+            <label for="korean-consonants">Korean Consonants (ㄱ, ㄴ, ㄷ, etc.)</label>
+        </div>
+        
+        <div class="option">
+            <input type="checkbox" id="korean-vowels" checked>
+            <label for="korean-vowels">Korean Vowels (ㅏ, ㅓ, ㅗ, etc.)</label>
+        </div>
+        
+        <div class="option">
+            <input type="checkbox" id="korean-basic-syllables" checked>
+            <label for="korean-basic-syllables">Korean Basic Syllables (가, 나, 다, etc.)</label>
+        </div>
+        
+        <div class="option">
+            <input type="checkbox" id="korean-complete-syllables">
+            <label for="korean-complete-syllables">Korean Complete Syllables (각, 난, 닫, etc.)</label>
+        </div>
+        <div class="option">
+            <label for="duration">Duration:</label>
+            <select id="duration">
+                <option value="60">60 seconds</option>
+                <option value="120" selected>120 seconds</option>
+                <option value="180">180 seconds</option>
+            </select>
+        </div>
+        
+        <div class="option">
+            <label for="hint-delay">Hint Delay (seconds):</label>
+            <select id="hint-delay">
+                <option value="5">5 seconds</option>
+                <option value="10" selected>10 seconds</option>
+                <option value="20">20 seconds</option>
+            </select>
+        </div>
+        
+        <button id="start-button">Start Game</button>
+        <div id="error-message" class="error-message">Please select at least one game mode</div>
+    </div>
+
+    <script>
+        // Wait for the DOM to be fully loaded
+        document.addEventListener('DOMContentLoaded', function() {
+            const startButton = document.getElementById('start-button');
+            const errorMessage = document.getElementById('error-message');
+
+            startButton.addEventListener('click', function() {
+                const gameConfig = {
+                    hiragana: document.getElementById('hiragana').checked,
+                    katakana: document.getElementById('katakana').checked,
+                    koreanConsonants: document.getElementById('korean-consonants').checked,
+                    koreanVowels: document.getElementById('korean-vowels').checked,
+                    koreanBasicSyllables: document.getElementById('korean-basic-syllables').checked,
+                    koreanCompleteSyllables: document.getElementById('korean-complete-syllables').checked,
+                    duration: parseInt(document.getElementById('duration').value),
+                    hintDelay: parseInt(document.getElementById('hint-delay').value)
+                };
+
+                // Check if at least one option is selected
+                const hasSelection = Object.entries(gameConfig)
+                    .filter(([key]) => key !== 'duration' && key !== 'hintDelay')
+                    .some(([_, value]) => value);
+
+                if (!hasSelection) {
+                    errorMessage.style.display = 'block';
+                    return;
+                }
+
+                // Hide error message if it was previously shown
+                errorMessage.style.display = 'none';
+
+                // Save configuration and redirect
+                localStorage.setItem('languageGameConfig', JSON.stringify(gameConfig));
+                window.location.href = 'game.html';
+            });
+        });
+    </script>
+</body>
+</html>

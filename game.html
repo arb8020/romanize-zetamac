@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Language Learning Zetamac</title>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <div id="game-container">
+        <div id="score">0</div>
+        <div id="prompt"></div>
+        <div id="hint" style="visibility: hidden;"></div>
+        <input type="text" id="answer-input" placeholder="Enter romanization">
+        <div id="timer">Time left: 120s</div>
+        <button id="home-button" style="display: none;">Change Settings</button>
+        <button id="restart-button" style="display: none;">Play Again</button>
+    </div>
+    <script>
+        var Module = {
+            onRuntimeInitialized: function() {
+                initVoices().then(() => {
+                    initGame();
+                });
+            }
+        };
+    </script>
+    <script src="build/game.js"></script>
+    <script>
+        let timerInterval;
+        let hintTimeout;
+        let cachedVoices = {
+            korean: null,
+            japanese: null
+        };
+
+        const VOICE_SETTINGS = {
+            korean: {
+                lang: 'ko-KR',
+                rate: 0.8,
+                pitch: 1
+            },
+            japanese: {
+                lang: 'ja-JP',
+                rate: 0.8,
+                pitch: 1
+            }
+        };
+
+        // Initialize and cache voices
+        async function initVoices() {
+            // If voices aren't loaded yet, wait for them
+            if (window.speechSynthesis.getVoices().length === 0) {
+                await new Promise(resolve => {
+                    window.speechSynthesis.addEventListener('voiceschanged', resolve, { once: true });
+                });
+            }
+
+            const voices = window.speechSynthesis.getVoices();
+            
+            // Find and cache the best voice for each language
+            cachedVoices.korean = voices.find(voice => 
+                voice.lang === 'ko-KR' && voice.localService) || 
+                voices.find(voice => voice.lang === 'ko-KR');
+
+            cachedVoices.japanese = voices.find(voice => 
+                voice.lang === 'ja-JP' && voice.localService) || 
+                voices.find(voice => voice.lang === 'ja-JP');
+
+            // Log available voices for debugging
+            console.log('Available voices loaded:', {
+                korean: cachedVoices.korean?.name || 'Not found',
+                japanese: cachedVoices.japanese?.name || 'Not found'
+            });
+        }
+
+        function playCharacterSound(character, mode) {
+            // Cancel any existing speech
+            window.speechSynthesis.cancel();
+
+            const utterance = new SpeechSynthesisUtterance(character);
+            const isKorean = mode.includes('korean');
+            
+            // Use cached voice and settings
+            const settings = isKorean ? VOICE_SETTINGS.korean : VOICE_SETTINGS.japanese;
+            const voice = isKorean ? cachedVoices.korean : cachedVoices.japanese;
+
+            // Apply settings
+            utterance.rate = settings.rate;
+            utterance.pitch = settings.pitch;
+            utterance.lang = settings.lang;
+
+            if (voice) {
+                utterance.voice = voice;
+            } else {
+                console.warn(`No ${isKorean ? 'Korean' : 'Japanese'} voice found`);
+            }
+
+            // Add event listeners for debugging
+            utterance.onstart = () => console.log('Started speaking:', character);
+            utterance.onend = () => console.log('Finished speaking:', character);
+            utterance.onerror = (e) => console.error('Speech error:', e);
+
+            window.speechSynthesis.speak(utterance);
+        }
+
+        function determineCharacterMode(config, character) {
+            const code = character.charCodeAt(0);
+            if (code >= 0xAC00 && code <= 0xD7AF) return 'korean-syllable';
+            if (code >= 0x1100 && code <= 0x11FF) return 'korean-jamo';
+            if (code >= 0x3040 && code <= 0x309F) return 'japanese-hiragana';
+            if (code >= 0x30A0 && code <= 0x30FF) return 'japanese-katakana';
+            return 'korean-syllable';
+        }
+
+        function initGame() {
+            const config = JSON.parse(localStorage.getItem('languageGameConfig'));
+            if (!config) {
+                console.error('Game configuration not found');
+                return;
+            }
+
+            Module.ccall('initGame', null, 
+                ['number', 'boolean', 'boolean', 'boolean', 'boolean', 'boolean', 'boolean'], 
+                [config.duration, 
+                 config.hiragana,
+                 config.katakana,
+                 config.koreanConsonants,
+                 config.koreanVowels,
+                 config.koreanBasicSyllables,
+                 config.koreanCompleteSyllables
+                ]);
+
+            Module.ccall('setHintDelay', null, ['number'], [config.hintDelay || 5]);
+
+            updatePrompt();
+            startTimer();
+            document.getElementById('answer-input').disabled = false;
+            document.getElementById('home-button').style.display = 'none';
+            document.getElementById('restart-button').style.display = 'none';
+        }
+
+        function updatePrompt() {
+            const prompt = Module.ccall('getCurrentPrompt', 'string', [], []);
+            document.getElementById('prompt').textContent = prompt;
+            document.getElementById('hint').style.visibility = 'hidden';
+            document.getElementById('answer-input').value = '';
+            
+            clearTimeout(hintTimeout);
+            const hintDelay = Module.ccall('getHintDelay', 'number', [], []) * 1000;
+            hintTimeout = setTimeout(showHint, hintDelay);
+        }
+
+        function showHint() {
+            const answer = Module.ccall('getAnswer', 'string', [], []);
+            document.getElementById('hint').textContent = answer;
+            document.getElementById('hint').style.visibility = 'visible';
+        }
+
+        function checkAnswer() {
+            const answer = document.getElementById('answer-input').value.toLowerCase();
+            const correct = Module.ccall('checkAnswer', 'boolean', ['string'], [answer]);
+            if (correct) {
+                const currentChar = document.getElementById('prompt').textContent;
+                const config = JSON.parse(localStorage.getItem('languageGameConfig'));
+                const mode = determineCharacterMode(config, currentChar);
+                
+                playCharacterSound(currentChar, mode);
+                
+                updateScore();
+                updatePrompt();
+            }
+        }
+
+        function updateScore() {
+            const score = Module.ccall('getScore', 'number', [], []);
+            document.getElementById('score').textContent = score;
+        }
+
+        function startTimer() {
+            const timerElement = document.getElementById('timer');
+            clearInterval(timerInterval);
+            
+            timerInterval = setInterval(() => {
+                Module.ccall('updateTime', null, [], []);
+                const timeLeft = Module.ccall('getTimeLeft', 'number', [], []);
+                timerElement.textContent = `Time left: ${timeLeft}s`;
+                if (timeLeft <= 0) {
+                    clearInterval(timerInterval);
+                    endGame();
+                }
+            }, 1000);
+        }
+
+        function endGame() {
+            const finalScore = Module.ccall('getScore', 'number', [], []);
+            alert(`Game Over! Your final score is: ${finalScore}`);
+            document.getElementById('answer-input').disabled = true;
+            document.getElementById('home-button').style.display = 'inline-block';
+            document.getElementById('restart-button').style.display = 'inline-block';
+        }
+
+        function goHome() {
+            window.location.href = 'index.html';
+        }
+
+        document.getElementById('answer-input').addEventListener('input', checkAnswer);
+        document.getElementById('home-button').addEventListener('click', goHome);
+        document.getElementById('restart-button').addEventListener('click', initGame);
+    </script>
+</body>
+</html>
